@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<head>
+  <meta charset="utf-8">
+  <!--<script src="node_modules/d3/build/d3.js"></script>-->
+  <script src="http://d3js.org/d3.v3.min.js"></script>
+
+  <style>
+     body { margin:0;position:fixed;top:0;right:0;bottom:0;left:0; }
+  
+    .province:hover {
+        opacity: 0.5;
+    }
+    .hidden {
+        display: none;
+    }
+    div.tooltip {
+        color: #222;
+        background-color: #fff;
+        padding: .5em;
+        text-shadow: #f5f5f5 0 1px 0;
+        border-radius: 2px;
+        opacity: 0.9;
+        position: absolute;
+    }
+  </style>
+</head>
+
+<body>  
+ 
+  <script>
+    
+    var width = 700,
+        height = 580;
+
+    var svg = d3.select( "body" )
+      .append( "svg" )
+      .attr( "width", width )
+      .attr( "height", height );
+    
+    // Definir la map de France
+    var mapFrance = d3.geoConicConformal().center([2.454071, 46.279229]).scale(2500);
+    
+    // Definir l'echelle de couleur
+    var color = d3.scaleQuantize()  
+          .range(["rgb(213,239,204)", 
+                  "rgb(169,221,160)", 
+                  "rgb(94,186,97)", 
+                  "rgb(42,141,71)", 
+                  "rgb(0,91,36)"]);
+
+   var tooltip = d3.select('body')
+                            .append('div')
+                            .attr('class', 'hidden tooltip');
+
+    var path = d3.geoPath().projection(mapFrance);
+    
+    // charger les données
+     d3.csv("GrippeFrance2014.csv", function(data) {
+         
+         var max=d3.max(data, function(d){return +d.somme2014});
+         color.domain([0, max]);
+
+        d3.json("regions.json", function(json) {
+          
+        //Fusionner les donnees avec le GeoJSON des regions
+        for (var i = 0; i < data.length; i++) {
+          
+          // Trouver nom de la region dans le csv 
+          var dataValue = data[i].somme2014;
+          var dataRegion = data[i].region;
+
+          for (var j = 0; j< json.features.length; j++){
+            var jsonRegion = json.features[j].properties.nom;
+            if (dataRegion == jsonRegion) {
+              json.features[j].properties.tab =  dataValue;
+               break;
+            }
+          }
+        }
+ 
+        svg.selectAll("path")
+          .data(json.features)
+          .enter()
+          .append("path")
+          .attr("d", path)
+          .style("fill", function(d) {
+                var tab = d.properties.tab;
+                if (tab != undefined) {
+                    return color(parseInt(tab));
+                } else { 
+                    // s'il n'y a pas de valeur, colorier avec gris
+                    return "#ccc";
+                }
+            });
+
+          // Ajouter Tooltip
+
+            map = svg.selectAll("path")
+           .data(json.features);
+             map
+              .on('mousemove', function(d) {
+                  if(d.properties.tab == undefined){
+                      nbr = "undefined";
+                  }else { 
+                      nbr = d.properties.tab; 
+                    }
+                  var mouse = d3.mouse(svg.node()).map(function(d) {
+                     return parseInt(d);
+                  });
+          
+              tooltip.classed('hidden', false)
+                     .attr('style', 'left:' + (mouse[0] + 15) +
+                             'px; top:' + (mouse[1] - 35) + 'px')
+                     .html(d.properties.nom + ":" + parseFloat(nbr));
+                      
+              })
+              .on('mouseout', function() {
+                  tooltip.classed('hidden', true);
+                  });
+        
+
+
+        }); 
+      
+      
+                      
+              })
+          </script>
+
+  
+</body>
